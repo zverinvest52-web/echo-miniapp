@@ -1,0 +1,33 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'index.html'
+      - 'api/**'
+      - 'package.json'
+      - 'vite.config.ts'
+      - 'requirements.txt'
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-workflow-dispatch@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+          workflow: auto-deploy-pages
+      
+      - name: Trigger Backend Deploy
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.PAT }}
+          repository: zverinvest52-web/echo-miniapp-render
+          event: deploy
