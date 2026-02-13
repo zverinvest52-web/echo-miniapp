@@ -279,53 +279,50 @@
             Загрузка задач...
         </div>
 
-        <!-- Content -->
-        <div id="app" style="display: none;">
-            <!-- Quick Templates -->
-            <div class="quick-templates">
-                <button class="template-btn" onclick="addTemplate('Код-ревью')">
-                    <span class="template-icon">🔍</span>
-                    Код-ревью
-                </button>
-                <button class="template-btn" onclick="addTemplate('Митинг')">
-                    <span class="template-icon">👥</span>
-                    Митинг
-                </button>
-                <button class="template-btn" onclick="addTemplate('Обед')">
-                    <span class="template-icon">🍔</span>
-                    Обед
-                </button>
-                <button class="template-btn" onclick="addTemplate('Спорт')">
-                    <span class="template-icon">🏃</span>
-                    Спорт
-                </button>
-            </div>
-
-            <!-- Add Task Button -->
-            <button class="add-task-btn" onclick="openQuickTask()">
-                ➕ Добавить задачу
+        <!-- Quick Templates -->
+        <div id="quick-templates" class="quick-templates" style="display: none;">
+            <button class="template-btn" onclick="addTemplate('Код-ревью')">
+                <span class="template-icon">🔍</span>
+                Код-ревью
             </button>
+            <button class="template-btn" onclick="addTemplate('Митинг')">
+                <span class="template-icon">👥</span>
+                Митинг
+            </button>
+            <button class="template-btn" onclick="addTemplate('Обед')">
+                <span class="template-icon">🍔</span>
+                Обед
+            </button>
+            <button class="template-btn" onclick="addTemplate('Спорт')">
+                <span class="template-icon">🏃</span>
+                Спорт
+            </button>
+        </div>
 
-            <!-- Stats -->
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-number" id="active-tasks">0</div>
-                    <div class="stat-label">Активных задач</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="completed-today">0</div>
-                    <div class="stat-label">Выполнено сегодня</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="efficiency">0%</div>
-                    <div class="stat-label">Эффективность</div>
-                </div>
-            </div>
+        <!-- Add Task Button -->
+        <button id="add-task-btn" class="add-task-btn" onclick="openQuickTask()" style="display: none;">
+            ➕ Добавить задачу
+        </button>
 
-            <!-- Timeline -->
-            <div class="timeline" id="tasks">
-                <!-- Tasks loaded here -->
+        <!-- Stats -->
+        <div id="stats" class="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-number" id="active-tasks">0</div>
+                <div class="stat-label">Активных задач</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completed-today">0</div>
+                <div class="stat-label">Выполнено сегодня</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="efficiency">0%</div>
+                <div class="stat-label">Эффективность</div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div id="tasks" class="timeline" style="display: none;">
+            <!-- Tasks loaded here -->
         </div>
 
         <!-- Empty State -->
@@ -355,7 +352,7 @@
         // Load tasks
         async function loadTasks() {
             try {
-                const response = await fetch(`https://api.echoapp.com/tasks?user_id=${user.id}`);
+                const response = await fetch(`https://echo-miniapp.onrender.com/tasks?user_id=${user.id}`);
                 tasks = await response.json();
                 renderTasks();
             } catch (error) {
@@ -369,20 +366,26 @@
             const container = document.getElementById('tasks');
             const loading = document.getElementById('loading');
             const emptyState = document.getElementById('empty-state');
-            const app = document.getElementById('app');
+            const quickTemplates = document.getElementById('quick-templates');
+            const addTaskBtn = document.getElementById('add-task-btn');
+            const stats = document.getElementById('stats');
 
             loading.style.display = 'none';
 
+            // Always show buttons
+            quickTemplates.style.display = 'grid';
+            addTaskBtn.style.display = 'flex';
+            stats.style.display = 'grid';
+
             if (tasks.length === 0) {
-                app.style.display = 'none';
                 emptyState.style.display = 'block';
+                container.style.display = 'none';
                 updateStats();
                 return;
             }
 
-            app.style.display = 'block';
             emptyState.style.display = 'none';
-
+            container.style.display = 'block';
             container.innerHTML = tasks.map(task => createTaskHTML(task)).join('');
             updateStats();
         }
@@ -431,7 +434,7 @@
         // Complete task
         async function completeTask(taskId) {
             try {
-                const response = await fetch(`https://api.echoapp.com/tasks/${taskId}/complete`, {
+                const response = await fetch(`https://echo-miniapp.onrender.com/tasks/${taskId}/complete`, {
                     method: 'POST'
                 });
                 
@@ -451,7 +454,7 @@
         // Postpone task
         async function postponeTask(taskId) {
             try {
-                const response = await fetch(`https://api.echoapp.com/tasks/${taskId}/postpone`, {
+                const response = await fetch(`https://echo-miniapp.onrender.com/tasks/${taskId}/postpone`, {
                     method: 'POST'
                 });
                 
@@ -468,7 +471,7 @@
         // Add template task
         async function addTemplate(templateName) {
             try {
-                const response = await fetch(`https://api.echoapp.com/tasks/quick`, {
+                const response = await fetch(`https://echo-miniapp.onrender.com/tasks/quick`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ template: templateName })
@@ -501,8 +504,11 @@
 
         // Show empty state
         function showEmptyState() {
-            document.getElementById('app').style.display = 'none';
+            document.getElementById('quick-templates').style.display = 'grid';
+            document.getElementById('add-task-btn').style.display = 'flex';
+            document.getElementById('stats').style.display = 'grid';
             document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('tasks').style.display = 'none';
             document.getElementById('loading').style.display = 'none';
             updateStats();
         }
