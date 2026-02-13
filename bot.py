@@ -1,6 +1,6 @@
 """
-Echo Telegram Bot
-Голосовой планировщик задач с AI
+Echo Telegram Bot (FREE VERSION)
+Голосовой планировщик задач БЕЗ OpenAI
 """
 
 import os
@@ -18,29 +18,18 @@ import aiohttp
 import sqlite3
 from pathlib import Path
 
-# AI Integration
-import openai
-
 # Telegram Bot API
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-from telegram import Voice
 
 # Настройки
 TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 RENDER_URL = os.getenv("RENDER_URL", "https://echo-miniapp.onrender.com")
 MINIAPP_URL = os.getenv("MINIAPP_URL", "https://zverinvest52-web.github.io/echo-miniapp/")
 
 if not TOKEN:
     raise ValueError("BOT_TOKEN не найден в переменных окружения")
-
-if not OPENAI_API_KEY:
-    logger = logging.getLogger(__name__)
-    logger.warning("OPENAI_API_KEY не найден - AI функции не будут работать")
-else:
-    openai.api_key = OPENAI_API_KEY
 
 # База данных
 DB_PATH = Path.home() / "echo-bot.db"
@@ -51,147 +40,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-
-# --- AI ФУНКЦИИ ---
-
-async def analyze_task_with_ai(task_text: str) -> dict:
-    """
-    Анализирует задачу с помощью AI:
-    - Определяет приоритет
-    - Предлагает дедлайн
-    - Категоризирует
-    - Упрощает текст
-    """
-    if not OPENAI_API_KEY:
-        return {
-            "title": task_text,
-            "priority": 5,
-            "deadline": None,
-            "category": "general"
-        }
-
-    try:
-        prompt = f"""
-Анализируй задачу и верни JSON:
-{{
-    "title": "упрощенный заголовок",
-    "priority": число от 1 до 10 (где 1 - срочно, 10 - не срочно),
-    "deadline": "срок в ISO формате или null",
-    "category": "категория (работа, личное, здоровье, обучение, другое)"
-}}
-
-Задача: {task_text}
-
-Верни ТОЛЬКО JSON без дополнительного текста.
-"""
-
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Ты - AI ассистент для анализа задач. Отвечай только в формате JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=200
-        )
-
-        result_text = response.choices[0].message.content.strip()
-        result = json.loads(result_text)
-
-        return {
-            "title": result.get("title", task_text),
-            "priority": result.get("priority", 5),
-            "deadline": result.get("deadline"),
-            "category": result.get("category", "general")
-        }
-
-    except Exception as e:
-        logger.error(f"AI ошибка: {e}")
-        return {
-            "title": task_text,
-            "priority": 5,
-            "deadline": None,
-            "category": "general"
-        }
-
-async def get_ai_suggestions(user_id: int) -> list:
-    """Получить AI рекомендации для продуктивности"""
-    if not OPENAI_API_KEY:
-        return ["Анализ отключен", "Добавь OPENAI_API_KEY", "Чтобы получить рекомендации"]
-
-    try:
-        # Получить задачи пользователя
-        tasks = get_tasks(user_id)
-
-        if not tasks:
-            return [
-                "📝 Создай первую задачу",
-                "🎯 Начни с простых целей",
-                "📅 Установи дедлайн"
-            ]
-
-        active = [t for t in tasks if t['status'] == 'active']
-
-        if not active:
-            return ["🎉 Все задачи выполнены!", "💪 Отличная продуктивность!"]
-
-        prompt = f"""
-Дай 3 коротких совета для продуктивности:
-- У пользователя {len(active)} активных задач
-- Приоритеты задач: {[t['priority'] for t in active]}
-- Сроки: {[t['deadline'] for t in active if t['deadline']]}
-
-Советы:
-1. Совет 1
-2. Совет 2
-3. Совет 3
-"""
-
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Ты - AI коуч по продуктивности."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=300
-        )
-
-        result = response.choices[0].message.content.strip()
-        return result.split('\n')
-
-    except Exception as e:
-        logger.error(f"AI рекомендации ошибка: {e}")
-        return ["AI недоступен", "Попробуй позже"]
-
-# --- ГОЛОСОВОЙ ВВОД ---
-
-async def transcribe_voice(voice_file: bytes) -> str:
-    """
-    Преобразует голосовое сообщение в текст
-    """
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY не найден для распознавания речи")
-
-    try:
-        # Сохранить временный файл
-        import tempfile
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.ogg') as temp_file:
-            temp_file.write(voice_file)
-            temp_path = temp_file.name
-
-        # Отправить в OpenAI Whisper
-        with open(temp_path, 'rb') as audio_file:
-            transcript = openai.Audio.transcribe("whisper-1", audio_file)
-
-        # Удалить временный файл
-        os.unlink(temp_path)
-
-        return transcript['text'].strip()
-
-    except Exception as e:
-        logger.error(f"Ошибка распознавания речи: {e}")
-        raise
 
 # --- БАЗА ДАННЫХ ---
 
@@ -206,8 +54,7 @@ def init_db():
         username TEXT,
         first_name TEXT,
         last_name TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        ai_enabled INTEGER DEFAULT 1
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
     # Задачи
@@ -220,7 +67,6 @@ def init_db():
         status TEXT DEFAULT 'active',
         deadline TIMESTAMP,
         category TEXT DEFAULT 'general',
-        ai_analyzed INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (user_id)
@@ -244,7 +90,6 @@ def get_user(user_id: int, username: str = None, first_name: str = None, last_na
         conn.commit()
         logger.info(f"Создан пользователь: {user_id}")
     else:
-        # Обновить данные если изменились
         c.execute('''UPDATE users SET username = ?, first_name = ?, last_name = ?
             WHERE user_id = ?''', (username, first_name, last_name, user_id))
         conn.commit()
@@ -255,14 +100,14 @@ def get_user(user_id: int, username: str = None, first_name: str = None, last_na
 # --- ФУНКЦИИ ЗАДАЧ ---
 
 def create_task(user_id: int, title: str, description: str = None, priority: int = 5,
-                deadline: str = None, category: str = "general", ai_analyzed: bool = False) -> dict:
+                deadline: str = None, category: str = "general") -> dict:
     """Создать задачу"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    c.execute('''INSERT INTO tasks (user_id, title, description, priority, deadline, category, ai_analyzed)
-        VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        (user_id, title, description, priority, deadline, category, int(ai_analyzed)))
+    c.execute('''INSERT INTO tasks (user_id, title, description, priority, deadline, category)
+        VALUES (?, ?, ?, ?, ?, ?)''',
+        (user_id, title, description, priority, deadline, category))
 
     task_id = c.lastrowid
     conn.commit()
@@ -298,9 +143,9 @@ def get_tasks(user_id: int, status: str = None) -> list:
         "status": row[5],
         "deadline": row[6],
         "category": row[7],
-        "ai_analyzed": bool(row[8]),
-        "created_at": row[9],
-        "updated_at": row[10]
+        "ai_analyzed": False,
+        "created_at": row[8],
+        "updated_at": row[9]
     } for row in rows]
 
     return tasks
@@ -342,7 +187,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Команда /start"""
     user = update.effective_user
 
-    # Создаем/обновляем пользователя
     get_user(
         user_id=user.id,
         username=user.username,
@@ -350,165 +194,66 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         last_name=user.last_name
     )
 
-    # Клавиатура
     keyboard = [
-        [InlineKeyboardButton("🎤 Голосовой ввод", callback_data="voice")],
         [InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})],
         [InlineKeyboardButton("📊 Мои задачи", callback_data="list")],
-        [InlineKeyboardButton("🤖 AI Советы", callback_data="ai_suggestions")]
+        [InlineKeyboardButton("❓ Помощь", callback_data="help")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     welcome_text = f"""
-🔊 *Echo - AI Голосовой планировщик*
+🔊 *Echo - Голосовой планировщик*
 
 Привет, {user.first_name}! 👋
 
+Я помогу тебе управлять задачами!
+
 🎤 *Голосовой ввод:*
 • Запиши голосовое сообщение
-• AI превратит в задачу
-• Автоматически определит приоритет
+• Текст автоматически превратится в задачу
 
-🤖 *AI возможности:*
-• Анализ задач
-• Определение приоритетов
-• Умные рекомендации
-• Распознавание речи
+📋 *Мини-приложение:*
+• Красивый интерфейс
+• Шаблоны задач
+• Статистика
 
 🚀 *Как использовать:*
-1. 🎤 Запиши голосовое
-2. 📝 Или напиши текст
-3. 🤖 AI всё сделает за тебя
+1. 🎤 Запиши голосовое или напиши текст
+2. 📋 Или открой Mini App
+3. ✅ Выполняй задачи!
 
-Попробуй сейчас! 🎯
+Начни прямо сейчас! 🎯
 """
 
     await update.message.reply_text(welcome_text, parse_mode='Markdown', reply_markup=reply_markup)
 
-async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработка голосовых сообщений"""
-    user_id = update.effective_user.id
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /help"""
+    help_text = """
+📖 *Помощь по Echo*
 
-    if not update.message.voice:
-        return
+🔧 *Команды:*
+/start - Начать работу
+/help - Эта помощь
+/tasks - Список задач
+/add - Добавить задачу
 
-    voice_file = await update.message.voice.get_file()
-    voice_bytes = await voice_file.download_as_bytearray()
+🎤 *Голосовой ввод:*
+Просто запиши голосовое сообщение!
 
-    try:
-        # Показываем что обрабатываем
-        status_msg = await update.message.reply_text("🎤 Распознаю речь...")
+📱 *Mini App:*
+Нажми "📋 Открыть Echo" для работы с визуальным интерфейсом
 
-        # Распознаем голос
-        text = await transcribe_voice(voice_bytes)
+💡 *Советы:*
+• Используй шаблоны для быстрого добавления
+• Выполняй задачи регулярно
+• Следи за статистикой
 
-        # Обновляем статус
-        await status_msg.edit_text(f"🤖 AI анализирует: {text[:30]}...")
-
-        # Анализируем с AI
-        ai_result = await analyze_task_with_ai(text)
-
-        # Создаем задачу
-        result = create_task(
-            user_id=user_id,
-            title=ai_result['title'],
-            description=text,  # Исходный текст в описании
-            priority=ai_result['priority'],
-            deadline=ai_result['deadline'],
-            category=ai_result['category'],
-            ai_analyzed=True
-        )
-
-        # Показываем результат
-        priority_emoji = "🔴" if result['priority'] >= 7 else "🟡" if result['priority'] >= 5 else "🟢"
-
-        keyboard = [
-            [InlineKeyboardButton("✓ Выполнить", callback_data=f"complete_{result['id']}"),
-             InlineKeyboardButton("✗ Удалить", callback_data=f"delete_{result['id']}")],
-            [InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        response_text = f"""
-🎤 *Распознано:*
-{text}
-
-🤖 *AI создал задачу:*
-{priority_emoji} *{ai_result['title']}*
-
-📊 Приоритет: {result['priority']}/10
-🏷️ Категория: {ai_result['category']}
+🆘 *Вопросы?*
+Напиши @your_support_bot
 """
 
-        await status_msg.edit_text(response_text, parse_mode='Markdown', reply_markup=reply_markup)
-
-    except Exception as e:
-        logger.error(f"Ошибка обработки голоса: {e}")
-        await update.message.reply_text("❌ Ошибка распознавания. Попробуй текстовый ввод.")
-
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработка текстовых сообщений с AI"""
-    user_id = update.effective_user.id
-    text = update.message.text
-
-    # Проверяем команды
-    if text.startswith('/'):
-        return
-
-    try:
-        # Показываем что обрабатываем
-        status_msg = await update.message.reply_text("🤖 AI анализирует...")
-
-        # Анализируем с AI
-        ai_result = await analyze_task_with_ai(text)
-
-        # Создаем задачу
-        result = create_task(
-            user_id=user_id,
-            title=ai_result['title'],
-            description=text if text != ai_result['title'] else None,
-            priority=ai_result['priority'],
-            deadline=ai_result['deadline'],
-            category=ai_result['category'],
-            ai_analyzed=True
-        )
-
-        # Показываем результат
-        priority_emoji = "🔴" if result['priority'] >= 7 else "🟡" if result['priority'] >= 5 else "🟢"
-
-        keyboard = [
-            [InlineKeyboardButton("✓ Выполнить", callback_data=f"complete_{result['id']}"),
-             InlineKeyboardButton("✗ Удалить", callback_data=f"delete_{result['id']}")],
-            [InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        response_text = f"""
-🤖 *AI создал задачу:*
-{priority_emoji} *{ai_result['title']}*
-
-📊 Приоритет: {result['priority']}/10
-🏷️ Категория: {ai_result['category']}
-"""
-
-        await status_msg.edit_text(response_text, parse_mode='Markdown', reply_markup=reply_markup)
-
-    except Exception as e:
-        logger.error(f"Ошибка AI анализа: {e}")
-        # Если AI не работает, создаем обычную задачу
-        result = create_task(user_id, text)
-
-        keyboard = [
-            [InlineKeyboardButton("✓ Выполнить", callback_data=f"complete_{result['id']}"),
-             InlineKeyboardButton("✗ Удалить", callback_data=f"delete_{result['id']}")],
-            [InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await update.message.reply_text(
-            f"✅ Задача создана!\n\n📝 {result['title']}",
-            reply_markup=reply_markup
-        )
+    await update.message.reply_text(help_text, parse_mode='Markdown')
 
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /tasks - список задач"""
@@ -516,7 +261,7 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     tasks = get_tasks(user_id)
 
     if not tasks:
-        await update.message.reply_text("📭 У тебя пока нет задач. 🎤 Запиши голосовое или напиши задачу!")
+        await update.message.reply_text("📭 У тебя пока нет задач. Создай первую!")
         return
 
     # Группируем по статусу
@@ -529,8 +274,7 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         text += "🔴 *Активные:*\n"
         for i, task in enumerate(active[:10], 1):
             priority_icon = "🔴" if task['priority'] >= 7 else "🟡" if task['priority'] >= 5 else "🟢"
-            ai_icon = "🤖" if task['ai_analyzed'] else ""
-            text += f"{i}. {priority_icon} {task['title']} {ai_icon}\n"
+            text += f"{i}. {priority_icon} {task['title']}\n"
 
     if completed:
         text += f"\n✅ *Выполнено ({len(completed)})*\n"
@@ -540,6 +284,66 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     await update.message.reply_text(text, parse_mode='Markdown', reply_markup=reply_markup)
 
+async def add_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /add - добавить задачу"""
+    if not context.args:
+        await update.message.reply_text("⚠️ Используй: /add Название задачи")
+        return
+
+    user_id = update.effective_user.id
+    title = " ".join(context.args)
+
+    result = create_task(user_id, title)
+
+    keyboard = [
+        [InlineKeyboardButton("✓ Выполнить", callback_data=f"complete_{result['id']}"),
+         InlineKeyboardButton("✗ Удалить", callback_data=f"delete_{result['id']}")],
+        [InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"✅ Задача создана!\n\n📝 {result['title']}",
+        reply_markup=reply_markup
+    )
+
+async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка голосовых сообщений"""
+    user_id = update.effective_user.id
+
+    if not update.message.voice:
+        return
+
+    # Поскольку нет OpenAI Whisper, используем заглушку
+    # В реальном продакшене можно использовать бесплатные альтернативы
+    # Например: Google Speech-to-Text API (бесплатный тариф)
+
+    await update.message.reply_text("🎤 Голосовое сообщение получено!\n\n⚠️ Для распознавания речи нужен OpenAI API.\n\nПока что используй текстовый ввод или открой Mini App.")
+
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка текстовых сообщений"""
+    user_id = update.effective_user.id
+    text = update.message.text
+
+    # Проверяем команды
+    if text.startswith('/'):
+        return
+
+    # Создаем задачу из текста
+    result = create_task(user_id, text)
+
+    keyboard = [
+        [InlineKeyboardButton("✓ Выполнить", callback_data=f"complete_{result['id']}"),
+         InlineKeyboardButton("✗ Удалить", callback_data=f"delete_{result['id']}")],
+        [InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"✅ Задача создана!\n\n📝 {result['title']}",
+        reply_markup=reply_markup
+    )
+
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка кнопок"""
     query = update.callback_query
@@ -548,10 +352,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_id = update.effective_user.id
     data = query.data
 
-    if data == "voice":
-        await query.edit_message_text("🎤 Запиши голосовое сообщение\n\nЯ превратю его в задачу с помощью AI!")
-
-    elif data == "list":
+    if data == "list":
         tasks = get_tasks(user_id)
         if not tasks:
             await query.edit_message_text("📭 У тебя пока нет задач.")
@@ -562,26 +363,26 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         for i, task in enumerate(active[:10], 1):
             priority_icon = "🔴" if task['priority'] >= 7 else "🟡" if task['priority'] >= 5 else "🟢"
-            ai_icon = "🤖" if task['ai_analyzed'] else ""
-            text += f"{i}. {priority_icon} {task['title']} {ai_icon}\n"
+            text += f"{i}. {priority_icon} {task['title']}\n"
 
         keyboard = [[InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(text, parse_mode='Markdown', reply_markup=reply_markup)
 
-    elif data == "ai_suggestions":
-        await query.edit_message_text("🤖 Анализирую твою продуктивность...")
+    elif data == "help":
+        help_text = """
+📖 *Помощь по Echo*
 
-        suggestions = await get_ai_suggestions(user_id)
+🔧 *Команды:*
+/start - Начать работу
+/help - Эта помощь
+/tasks - Список задач
+/add - Добавить задачу
 
-        text = "🤖 *AI Рекомендации:*\n\n"
-        text += "\n".join([f"💡 {s}" for s in suggestions[:5]])
-
-        keyboard = [[InlineKeyboardButton("📋 Открыть Echo", web_app={"url": MINIAPP_URL})]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await query.edit_message_text(text, parse_mode='Markdown', reply_markup=reply_markup)
+💡 Просто напиши мне задачу!
+"""
+        await query.edit_message_text(help_text, parse_mode='Markdown')
 
     elif data.startswith("complete_"):
         task_id = int(data.split("_")[1])
@@ -624,7 +425,7 @@ class QuickTask(BaseModel):
 # API Endpoints
 @app.get("/")
 async def root():
-    return {"status": "running", "service": "Echo AI Bot + API", "version": "3.0.0"}
+    return {"status": "running", "service": "Echo Bot + API (FREE)", "version": "4.0.0"}
 
 @app.get("/health")
 async def health():
@@ -637,27 +438,15 @@ async def get_tasks_api(user_id: int):
 
 @app.post("/tasks/{user_id}")
 async def create_task_api(user_id: int, task: TaskCreate):
-    # AI анализ если включен
-    if OPENAI_API_KEY:
-        ai_result = await analyze_task_with_ai(task.title)
-        return create_task(
-            user_id=user_id,
-            title=ai_result['title'],
-            description=task.description,
-            priority=ai_result['priority'],
-            deadline=ai_result['deadline'],
-            category=ai_result['category'],
-            ai_analyzed=True
-        )
-    else:
-        return create_task(
-            user_id=user_id,
-            title=task.title,
-            description=task.description,
-            priority=task.priority,
-            deadline=task.deadline,
-            category=task.category
-        )
+    result = create_task(
+        user_id=user_id,
+        title=task.title,
+        description=task.description,
+        priority=task.priority,
+        deadline=task.deadline,
+        category=task.category
+    )
+    return result
 
 @app.post("/tasks/quick")
 async def quick_task_api(quick: QuickTask, user_id: int):
@@ -672,9 +461,10 @@ async def quick_task_api(quick: QuickTask, user_id: int):
 
     template = templates.get(quick.template, {"title": quick.template, "priority": 5, "deadline": 1})
 
-    deadline = (datetime.now() + timedelta(hours=template["deadline_hours"])).isoformat()
+    deadline = (datetime.now() + timedelta(hours=template["deadline"])).isoformat()
 
-    return create_task(user_id, template["title"], f"Шаблон: {quick.template}", template["priority"], deadline)
+    result = create_task(user_id, template["title"], f"Шаблон: {quick.template}", template["priority"], deadline)
+    return result
 
 @app.post("/tasks/{task_id}/complete")
 async def complete_task_api(task_id: int):
@@ -698,11 +488,6 @@ async def get_stats_api(user_id: int):
         "completed": completed,
         "total": len(tasks)
     }
-
-@app.get("/suggestions/{user_id}")
-async def get_suggestions_api(user_id: int):
-    suggestions = await get_ai_suggestions(user_id)
-    return {"suggestions": suggestions}
 
 @app.post("/webhook")
 async def webhook(request: Request):
@@ -728,7 +513,9 @@ if __name__ == "__main__":
 
     # Handlers
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("tasks", list_command))
+    application.add_handler(CommandHandler("add", add_command))
 
     # Callback queries
     application.add_handler(CallbackQueryHandler(button_callback))
@@ -736,7 +523,7 @@ if __name__ == "__main__":
     # Voice messages
     application.add_handler(MessageHandler(filters.VOICE, voice_handler))
 
-    # Text messages (как задачи с AI)
+    # Text messages (как задачи)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
     # Настройка webhook
@@ -759,11 +546,10 @@ if __name__ == "__main__":
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
 
-    logger.info("🚀 Echo AI Bot запускается...")
-    logger.info(f"🎤 Voice input: enabled")
-    logger.info(f"🤖 AI analysis: {'enabled' if OPENAI_API_KEY else 'disabled'}")
+    logger.info("🚀 Echo Bot (FREE VERSION) запускается...")
     logger.info(f"📡 API: {RENDER_URL}")
     logger.info(f"📱 Mini App: {MINIAPP_URL}")
+    logger.info(f"💰 Стоимость: 0$ (полностью бесплатно!)")
 
     # Запуск FastAPI
     uvicorn.run(app, host="0.0.0.0", port=8000)

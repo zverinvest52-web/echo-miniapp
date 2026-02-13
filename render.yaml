@@ -8,8 +8,6 @@ services:
     envVars:
       - key: BOT_TOKEN
         sync: false
-      - key: OPENAI_API_KEY
-        sync: false
       - key: RENDER_URL
         sync: false
       - key: MINIAPP_URL
