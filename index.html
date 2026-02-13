@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Echo</title>
+    <title>Echo AI</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,6 +38,10 @@
             font-size: 28px;
             font-weight: 700;
             margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         .header p {
             color: var(--tg-theme-hint-color);
@@ -80,12 +84,6 @@
             height: 12px;
             background: var(--tg-theme-button-color);
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 10px;
-            font-weight: bold;
         }
         .task-card.priority-high::before {
             background: #ff4444;
@@ -113,6 +111,12 @@
             font-size: 18px;
             font-weight: 600;
             color: var(--tg-theme-text-color);
+        }
+        .task-description {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+            margin-bottom: 12px;
+            line-height: 1.5;
         }
         .task-actions {
             display: flex;
@@ -144,7 +148,7 @@
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid #f0f0f0;
-        font-size: 13px;
+            font-size: 13px;
             color: var(--tg-theme-hint-color);
         }
         .task-meta-item {
@@ -156,6 +160,42 @@
             width: 16px;
             height: 16px;
             opacity: 0.6;
+        }
+        .voice-btn {
+            width: 100%;
+            padding: 20px;
+            border: none;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .voice-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        .voice-btn:active {
+            transform: scale(0.98);
+        }
+        .voice-btn.recording {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .voice-btn-icon {
+            font-size: 24px;
         }
         .add-task-btn {
             width: 100%;
@@ -180,11 +220,47 @@
         .add-task-btn:active {
             transform: scale(0.98);
         }
+        .ai-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .quick-templates {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .template-btn {
+            padding: 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .template-btn:hover {
+            border-color: var(--tg-theme-button-color);
+            background: var(--tg-theme-secondary-bg-color);
+        }
+        .template-icon {
+            font-size: 20px;
+        }
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 12px;
-            margin-top: 20px;
+            margin-bottom: 20px;
         }
         .stat-card {
             background: var(--tg-theme-secondary-bg-color);
@@ -237,32 +313,6 @@
             font-weight: 600;
             margin-bottom: 10px;
             color: var(--tg-theme-text-color);
-        }
-        .quick-templates {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .template-btn {
-            padding: 14px;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .template-btn:hover {
-            border-color: var(--tg-theme-button-color);
-            background: var(--tg-theme-secondary-bg-color);
-        }
-        .template-icon {
-            font-size: 20px;
         }
         .modal {
             position: fixed;
@@ -339,14 +389,20 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🔊 Echo</h1>
-            <p>Голосовой планировщик задач с AI</p>
+            <h1>🎤 Echo AI</h1>
+            <p>Голосовой планировщик с AI</p>
         </div>
 
         <!-- Loading -->
         <div id="loading" class="loading">
             Загрузка задач...
         </div>
+
+        <!-- Voice Input Button -->
+        <button id="voice-btn" class="voice-btn" onclick="startVoiceInput()" style="display: none;">
+            <span class="voice-btn-icon">🎤</span>
+            <span>🤖 AI Голосовой ввод</span>
+        </button>
 
         <!-- Quick Templates -->
         <div id="quick-templates" class="quick-templates" style="display: none;">
@@ -377,15 +433,15 @@
         <div id="stats" class="stats" style="display: none;">
             <div class="stat-card">
                 <div class="stat-number" id="active-tasks">0</div>
-                <div class="stat-label">Активных задач</div>
+                <div class="stat-label">Активных</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number" id="completed-today">0</div>
-                <div class="stat-label">Выполнено сегодня</div>
+                <div class="stat-label">Выполнено</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="efficiency">0%</div>
-                <div class="stat-label">Эффективность</div>
+                <div class="stat-number" id="ai-analyzed">0</div>
+                <div class="stat-label">AI задач</div>
             </div>
         </div>
 
@@ -400,7 +456,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9a2 2 0 00-2-2m0 2a2 2 0 012 2v4a2 2 0 01-2 2h4a2 2 0 012-2V7a2 2 0 00-2-2H9z" />
             </svg>
             <h3>Нет активных задач</h3>
-            <p>Нажмите "Добавить задачу" или используйте голосовой ввод</p>
+            <p>🎤 Запиши голосовое или напиши задачу - AI всё сделает!</p>
         </div>
 
         <!-- Add Task Modal -->
@@ -424,7 +480,7 @@
 
         // Initialize
         Telegram.WebApp.ready();
-        
+
         // Get user data
         const initData = Telegram.WebApp.initDataUnsafe;
         if (initData.user) {
@@ -435,7 +491,8 @@
         async function loadTasks() {
             try {
                 const response = await fetch(`https://echo-miniapp.onrender.com/tasks?user_id=${user.id}`);
-                tasks = await response.json();
+                const data = await response.json();
+                tasks = data.tasks || [];
                 renderTasks();
             } catch (error) {
                 console.error('Failed to load tasks:', error);
@@ -448,6 +505,7 @@
             const container = document.getElementById('tasks');
             const loading = document.getElementById('loading');
             const emptyState = document.getElementById('empty-state');
+            const voiceBtn = document.getElementById('voice-btn');
             const quickTemplates = document.getElementById('quick-templates');
             const addTaskBtn = document.getElementById('add-task-btn');
             const stats = document.getElementById('stats');
@@ -455,6 +513,7 @@
             loading.style.display = 'none';
 
             // Always show buttons
+            voiceBtn.style.display = 'flex';
             quickTemplates.style.display = 'grid';
             addTaskBtn.style.display = 'flex';
             stats.style.display = 'grid';
@@ -474,21 +533,22 @@
 
         // Create task HTML
         function createTaskHTML(task) {
-            const priorityClass = `priority-${task.priority.toLowerCase()}`;
+            const priorityClass = `priority-${task.priority <= 3 ? 'low' : task.priority <= 7 ? 'medium' : 'high'}`;
             const completedClass = task.status === 'completed' ? 'completed' : '';
-            const completedIcon = task.status === 'completed' ? '✓' : getPriorityNumber(task.priority);
-            
+            const aiBadge = task.ai_analyzed ? '<span class="ai-badge">🤖 AI</span>' : '';
+
             return `
                 <div class="task-card ${priorityClass} ${completedClass}">
                     <div class="task-header">
-                        <div class="task-title">${task.title}</div>
+                        <div class="task-title">${task.title} ${aiBadge}</div>
                         <div class="task-actions">
                             ${task.status !== 'completed' ? `
-                                <button class="task-actions btn-btn-complete" onclick="completeTask(${task.id})">✓</button>
-                                <button class="task-actions btn-btn-postpone" onclick="postponeTask(${task.id})">↻</button>
+                                <button class="btn-complete" onclick="completeTask(${task.id})">✓</button>
+                                <button class="btn-postpone" onclick="postponeTask(${task.id})">↻</button>
                             ` : ''}
                         </div>
                     </div>
+                    ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
                     <div class="task-meta">
                         <div class="task-meta-item">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -498,19 +558,42 @@
                         </div>
                         <div class="task-meta-item">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13h-1V6h5v2a3 3 0 003-3h7a3 3 0 003-3h6a3 3 0 00-3-3v3a3 3 0 003 3h9a3 3 0 003-3h5V7a3 3 0 00-3-3h6z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13h-1V6h5v2a3 3 0 003-3h7a3 3 0 003-3h6a3 3 0 003-3v3a3 3 0 003 3h9a3 3 0 003-3h5V7a3 3 0 003-3h6z" />
                             </svg>
-                            ${task.priority.toUpperCase()}
+                            Приоритет: ${task.priority}/10
                         </div>
+                        ${task.category ? `<div class="task-meta-item">🏷️ ${task.category}</div>` : ''}
                     </div>
                 </div>
             `;
         }
 
-        // Get priority number
-        function getPriorityNumber(priority) {
-            const map = { 'high': 1, 'medium': 2, 'low': 3 };
-            return map[priority] || 2;
+        // Update stats
+        function updateStats() {
+            const activeTasks = tasks.filter(t => t.status === 'active').length;
+            const completedToday = tasks.filter(t => {
+                if (t.status !== 'completed') return false;
+                const taskDate = new Date(t.updated_at);
+                const today = new Date();
+                return taskDate.toDateString() === today.toDateString();
+            }).length;
+            const aiAnalyzed = tasks.filter(t => t.ai_analyzed).length;
+
+            document.getElementById('active-tasks').textContent = activeTasks;
+            document.getElementById('completed-today').textContent = completedToday;
+            document.getElementById('ai-analyzed').textContent = aiAnalyzed;
+        }
+
+        // Show empty state
+        function showEmptyState() {
+            document.getElementById('voice-btn').style.display = 'flex';
+            document.getElementById('quick-templates').style.display = 'grid';
+            document.getElementById('add-task-btn').style.display = 'flex';
+            document.getElementById('stats').style.display = 'grid';
+            document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('tasks').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+            updateStats();
         }
 
         // Complete task
@@ -519,13 +602,11 @@
                 const response = await fetch(`https://echo-miniapp.onrender.com/tasks/${taskId}/complete`, {
                     method: 'POST'
                 });
-                
+
                 const result = await response.json();
-                
-                // Show completion
+
                 Telegram.WebApp.showPopup('✅ Задача выполнена!', '');
-                
-                // Reload tasks
+
                 await loadTasks();
             } catch (error) {
                 console.error('Failed to complete task:', error);
@@ -539,10 +620,10 @@
                 const response = await fetch(`https://echo-miniapp.onrender.com/tasks/${taskId}/postpone`, {
                     method: 'POST'
                 });
-                
+
                 const result = await response.json();
                 Telegram.WebApp.showPopup('↻ Задача отложена на 1 час', '');
-                
+
                 await loadTasks();
             } catch (error) {
                 console.error('Failed to postpone task:', error);
@@ -558,41 +639,15 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ template: templateName })
                 });
-                
+
                 const result = await response.json();
                 Telegram.WebApp.showPopup('✅ Задача создана!', '');
-                
+
                 await loadTasks();
             } catch (error) {
                 console.error('Failed to add template:', error);
                 Telegram.WebApp.showAlert('Ошибка при создании задачи');
             }
-        }
-
-        // Update stats
-        function updateStats() {
-            const activeTasks = tasks.filter(t => t.status === 'active').length;
-            const completedToday = tasks.filter(t => {
-                if (t.status !== 'completed') return false;
-                const taskDate = new Date(t.updated_at);
-                const today = new Date();
-                return taskDate.toDateString() === today.toDateString();
-            }).length;
-            
-            document.getElementById('active-tasks').textContent = activeTasks;
-            document.getElementById('completed-today').textContent = completedToday;
-            document.getElementById('efficiency').textContent = completedToday > 0 ? Math.round((completedToday / (activeTasks + completedToday)) * 100) + '%' : '0%';
-        }
-
-        // Show empty state
-        function showEmptyState() {
-            document.getElementById('quick-templates').style.display = 'grid';
-            document.getElementById('add-task-btn').style.display = 'flex';
-            document.getElementById('stats').style.display = 'grid';
-            document.getElementById('empty-state').style.display = 'block';
-            document.getElementById('tasks').style.display = 'none';
-            document.getElementById('loading').style.display = 'none';
-            updateStats();
         }
 
         // Open add task modal
@@ -605,10 +660,7 @@
             descInput.value = '';
             modal.classList.add('active');
 
-            // Focus on title input
             setTimeout(() => titleInput.focus(), 100);
-
-            // Show keyboard
             Telegram.WebApp.expand();
         }
 
@@ -649,9 +701,16 @@
             }
         }
 
+        // Start voice input (Telegram API)
+        function startVoiceInput() {
+            // Используем Telegram WebApp API для голосового ввода
+            // В Telegram Mini App это работает через клавиатуру телефона
+            Telegram.WebApp.showPopup('🎤 Голосовой ввод', 'Нажми на микрофон на клавиатуре и говори!');
+        }
+
         // On app start
         Telegram.WebApp.expand();
-        
+
         // Load tasks
         if (user && user.id) {
             loadTasks();
