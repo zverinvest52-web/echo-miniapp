@@ -264,6 +264,75 @@
         .template-icon {
             font-size: 20px;
         }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: var(--tg-theme-bg-color);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--tg-theme-text-color);
+        }
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 12px;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--tg-theme-button-color);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .modal-btn.primary {
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+        }
+        .modal-btn.secondary {
+            background: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+        .modal-btn:active {
+            transform: scale(0.96);
+        }
     </style>
 </head>
 <body>
@@ -332,6 +401,19 @@
             </svg>
             <h3>Нет активных задач</h3>
             <p>Нажмите "Добавить задачу" или используйте голосовой ввод</p>
+        </div>
+
+        <!-- Add Task Modal -->
+        <div id="add-task-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-title">Новая задача</div>
+                <input type="text" id="task-title" class="modal-input" placeholder="Название задачи">
+                <input type="text" id="task-description" class="modal-input" placeholder="Описание (опционально)">
+                <div class="modal-buttons">
+                    <button class="modal-btn secondary" onclick="closeModal()">Отмена</button>
+                    <button class="modal-btn primary" onclick="saveTask()">Сохранить</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -513,9 +595,58 @@
             updateStats();
         }
 
-        // Open quick task
+        // Open add task modal
         function openQuickTask() {
-            Telegram.WebApp.openLink('https://t.me/echo_miniapp_vercel.app?startapp=task');
+            const modal = document.getElementById('add-task-modal');
+            const titleInput = document.getElementById('task-title');
+            const descInput = document.getElementById('task-description');
+
+            titleInput.value = '';
+            descInput.value = '';
+            modal.classList.add('active');
+
+            // Focus on title input
+            setTimeout(() => titleInput.focus(), 100);
+
+            // Show keyboard
+            Telegram.WebApp.expand();
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('add-task-modal').classList.remove('active');
+        }
+
+        // Save task
+        async function saveTask() {
+            const title = document.getElementById('task-title').value.trim();
+            const description = document.getElementById('task-description').value.trim();
+
+            if (!title) {
+                Telegram.WebApp.showAlert('Введите название задачи');
+                return;
+            }
+
+            try {
+                const response = await fetch(`https://echo-miniapp.onrender.com/tasks/${user.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        description: description || null,
+                        priority: 5
+                    })
+                });
+
+                const result = await response.json();
+                Telegram.WebApp.showPopup('✅ Задача создана!', '');
+
+                closeModal();
+                await loadTasks();
+            } catch (error) {
+                console.error('Failed to save task:', error);
+                Telegram.WebApp.showAlert('Ошибка при создании задачи');
+            }
         }
 
         // On app start
