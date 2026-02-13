@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: echo-miniapp
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: RENDER_URL
+        sync: false
+      - key: MINIAPP_URL
+        value: https://zverinvest52-web.github.io/echo-miniapp/
